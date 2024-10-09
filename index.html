@@ -76,25 +76,40 @@
 </table>
 
     </div>
+
+<div id="accountsList" style="display: none;">
+    <h2>Accounts Report</h2>
+    <table id="accountsTable" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+        <thead>
+            <tr>
+                <th style="border: 1px solid #ccc; padding: 8px;">Date</th>
+                <th style="border: 1px solid #ccc; padding: 8px;">Item Name</th>
+                <th style="border: 1px solid #ccc; padding: 8px;">Income Amount</th>
+                <th style="border: 1px solid #ccc; padding: 8px;">Expense Amount</th>
+                <th style="border: 1px solid #ccc; padding: 8px;">Fund Name</th>
+                <th style="border: 1px solid #ccc; padding: 8px;">Fund Allocation</th>
+                <th style="border: 1px solid #ccc; padding: 8px;">ActionLK Allocation</th>
+                <th style="border: 1px solid #ccc; padding: 8px;">Staff Member</th>
+                <th style="border: 1px solid #ccc; padding: 8px;">Sold On</th>
+            </tr>
+        </thead>
+        <tbody id="accountsContent"></tbody>
+    </table>
+</div>
+
+  
     <button onclick="showForm('welcomeScreen')" style="margin-top: 20px; display: none;" id="backToHomeButton">Back to Home</button>
         
-        
-    </div>
-    </div>
-    </div>
-        
-    </div><div id="welcomeScreen" style="display: block; position: relative;">
+     <div id="welcomeScreen" style="display: block; position: relative;">
     <div id="quote" style="position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); width: 90%; text-align: center; padding-bottom: 20px;"></div>
-    <h2 style="text-align: center;">Welcome, Please Select:</h2>
     <div style="margin: 20px 0;">
         <button onclick="showForm('donationForm')">Check In Donation</button>
         <button onclick="showForm('itemsList')">View Stock</button>
         <button onclick="showForm('fundsList')">View Current Funds</button>
-        <button onclick="showForm('salesForm')">Make a Sale</button> <!-- Add this line -->
+        <button onclick="showForm('salesForm')">Make a Sale</button>
+        <button onclick="showForm('accountsList')">Accounts</button>
     </div>
 </div>
-
-    </div>
 
     <div id="donationForm" style="display: none;">
         <h2>Check In Donation</h2>
@@ -127,23 +142,198 @@
         <input type="number" id="saleAmount">
         <label for="staffMember">Staff Member:</label>
         <input type="text" id="staffMember">
-        <label for="soldOn">Sold On:</label>
-        <input type="text" id="soldOn" value="">
+<label for="soldOn">Sold On:</label>
+<select id="soldOn">
+    <option value="In-Store" selected>In-Store</option>
+    <option value="Facebook">Facebook</option>
+    <option value="Marketplace">Marketplace</option>
+    <option value="Done Deal">Done Deal</option>
+</select>
+
+
         <button onclick="registerSale()">Register Sale</button>
         <button onclick="showForm('welcomeScreen')">Back</button>
     </div>
 
     <script>
-    function showForm(formId) {
+
+    async function registerSale() {
+    const soldItemName = document.getElementById('soldItem').value;
+    const saleAmount = document.getElementById('saleAmount').value;
+    const staffMember = document.getElementById('staffMember').value;
+    const saleChannel = document.getElementById('soldOn').value;
+
+
+    if (!soldItemName || !saleAmount || !staffMember || !soldOn) {
+        alert('Please fill in all fields before registering the sale');
+        return;
+    }
+
+    try {
+        const response = await fetch('https://sheetdb.io/api/v1/6brag3n1d11fk?sheet=Items');
+        if (!response.ok) {
+            throw new Error('Failed to fetch existing items');
+        }
+        const items = await response.json();
+
+        // Find the item to update
+        const soldItem = items.find(item => item['Item Name'] === soldItemName);
+        if (!soldItem) {
+            throw new Error('Item not found');
+        }
+
+        const updatedItem = {
+            "ID": soldItem['ID'],
+            "Item Name": soldItemName,
+            "Item Type": soldItem['Item Type'],
+            "Allocated Fund": soldItem['Allocated Fund'],
+            "Price": soldItem['Price'],
+            "Received By": soldItem['Received By'],
+            "Donor": soldItem['Donor'],
+            "Status": "Sold",
+            "Sold Date": new Date().toISOString().split('T')[0], // Capture the current date in YYYY-MM-DD format
+            "Sold By": staffMember
+        };
+
+        // Update the item in the Google Sheet
+        const updateResponse = await fetch('https://sheetdb.io/api/v1/6brag3n1d11fk/ID/' + soldItem['ID'], {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ data: updatedItem })
+        });
+
+        if (!updateResponse.ok) {
+            throw new Error('Failed to update the item in the spreadsheet');
+        }
+
+        // Add the sale to the Accounts sheet
+        const previousSales = await fetch('https://sheetdb.io/api/v1/6brag3n1d11fk?sheet=Accounts');
+        if (!previousSales.ok) {
+            throw new Error('Failed to fetch existing sales');
+        }
+        const sales = await previousSales.json();
+        let highestSaleId = 0;
+        sales.forEach(sale => {
+            const currentSaleId = parseInt(sale['Sale ID'].split('.')[0].replace('s', ''));
+            if (!isNaN(currentSaleId) && currentSaleId > highestSaleId) {
+                highestSaleId = currentSaleId;
+            }
+        });
+        const now = new Date();
+const formattedTime = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`; // Format the time as HHMM
+const saleID = `s${highestSaleId + 1}.${formattedTime}`; // Sale ID with formatted time in HHMM format
+
+        const fundAllocation = (saleAmount * 0.8).toFixed(2);
+        const actionLKAllocation = (saleAmount * 0.2).toFixed(2);
+
+        const accountEntry = {
+            "Sale ID": saleID,
+            "Date": new Date().toLocaleDateString('en-IE'),
+            "Item Name": soldItemName,
+            "Income Amount": saleAmount,
+            "Expense Amount": "0", // No immediate expense is recorded here
+            "Fund Name": soldItem['Allocated Fund'],
+            "Fund Allocation": fundAllocation,
+            "ActionLK Allocation": actionLKAllocation,
+            "Staff Member": staffMember,
+            "Sold On": saleChannel
+        };
+
+        // Add the new account entry to the Accounts sheet
+        const addAccountResponse = await fetch('https://sheetdb.io/api/v1/6brag3n1d11fk?sheet=Accounts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ data: [accountEntry] })
+        });
+
+        if (!addAccountResponse.ok) {
+            throw new Error('Failed to add the account entry to the spreadsheet');
+        }
+
+// Update the Funds sheet to adjust the 'Amount Raised' and 'Last Changed' fields
+const fundsResponse = await fetch('https://sheetdb.io/api/v1/6brag3n1d11fk?sheet=Funds');
+if (!fundsResponse.ok) {
+    throw new Error('Failed to fetch existing funds');
+}
+const funds = await fundsResponse.json();
+
+const fundToUpdate = soldItem['Allocated Fund'];
+const actionLKFundName = "ActionLK"; // Assuming "ActionLK" is the fund name for shop expenses.
+
+// Update Allocated Fund
+await updateFund(funds, fundToUpdate, fundAllocation, "allocated");
+
+// Update ActionLK Fund
+await updateFund(funds, actionLKFundName, actionLKAllocation, "ActionLK");
+
+async function updateFund(funds, fundName, amountToAdd, type) {
+    const fund = funds.find(f => f['Fund Name'].trim() === fundName.trim());
+    if (fund) {
+        const newAmountRaised = (parseFloat(fund['Amount Raised']) + parseFloat(amountToAdd)).toFixed(2);
+
+        const updatedFund = {
+            "Amount Raised": newAmountRaised,
+            "Last Changed": new Date().toLocaleDateString('en-IE') // Updates with current date
+        };
+
+        // Log for debugging to ensure the fund ID and values are correct
+        console.log(`Updating ${type} Fund: `, fund['Fund Name'], updatedFund);
+
+        // Update the fund in the Google Sheet explicitly specifying the 'Funds' sheet
+        const updateFundResponse = await fetch(`https://sheetdb.io/api/v1/6brag3n1d11fk/ID/${fund['ID']}?sheet=Funds`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ data: updatedFund })
+        });
+
+        if (!updateFundResponse.ok) {
+            throw new Error(`Failed to update the fund: ${fundName}`);
+        }
+    } else {
+        console.log(`Fund not found for name: ${fundName}`);
+        throw new Error(`Fund not found: ${fundName}`);
+    }
+}
+
+
+
+
+await fetchFunds(); // Refresh funds list after updating the funds
+
+      
+        alert('Sale registered successfully!');
+
+        // Clear the input fields
+        document.getElementById('soldItem').value = '';
+        document.getElementById('saleAmount').value = '';
+        document.getElementById('staffMember').value = '';
+        document.getElementById('soldOn').value = '';
+
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+
+  function showForm(formId) {
     if (formId === 'itemsList') {
         fetchItems();
     } else if (formId === 'salesForm') {
         fetchItems(); // Ensure items are fetched when the sales form is shown
+        document.getElementById('soldOn').value = 'In-Store'; // Set default value for Sold On
+    } else if (formId === 'accountsList') {
+        fetchAccounts(); // Fetch accounts data when the accounts form is shown
     }
 
     // Show or hide Back to Home button based on the form
     const backToHomeButton = document.getElementById('backToHomeButton');
-    if (formId === 'fundsList' || formId === 'itemsList' || formId === 'donationForm' || formId === 'salesForm') {
+    if (formId === 'fundsList' || formId === 'itemsList' || formId === 'donationForm' || formId === 'salesForm' || formId === 'accountsList') {
         backToHomeButton.style.display = 'block';
     } else {
         backToHomeButton.style.display = 'none';
@@ -155,12 +345,15 @@
     document.getElementById('salesForm').style.display = 'none';
     document.getElementById('fundsList').style.display = 'none';
     document.getElementById('itemsList').style.display = 'none';
+    document.getElementById('accountsList').style.display = 'none';
 
     // Show the selected form
     if (document.getElementById(formId)) {
         document.getElementById(formId).style.display = 'block';
     }
 }
+
+
 
 
 
@@ -201,7 +394,8 @@
       "A Zen Master walked up to a hot dog stand and said, 'Make me one with everything.'",
   "Every decision you make — every decision — is not a decision about what to do. It’s a decision about Who You Are. - Neale Donald Walsch",
 "If you want to be happy, set a goal that commands your thoughts, liberates your energy, and inspires your hopes. - Andrew Carnegie",
-      "When the first light of sun, Bless you. When the long day is done, Bless you. In your smiles and your tears, Bless you. Through each day of your years, Bless you."
+      "When the first light of sun, Bless you. When the long day is done, Bless you. In your smiles and your tears, Bless you. Through each day of your years, Bless you.",
+      "Blessed are the peacemakers, for they shall be called sons of God. - Jesus, Matthew 5:9" 
     ];
     const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
     
@@ -273,6 +467,39 @@ function populateFundsList(funds) {
     }
 }
 
+async function fetchAccounts() {
+    try {
+        const response = await fetch('https://sheetdb.io/api/v1/6brag3n1d11fk?sheet=Accounts');
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        const accounts = await response.json();
+        populateAccountsList(accounts);
+    } catch (error) {
+        document.getElementById('accountsList').innerText = 'Error fetching accounts: ' + error;
+    }
+}
+
+function populateAccountsList(accounts) {
+    const accountsContent = document.getElementById('accountsContent');
+    accountsContent.innerHTML = '';
+
+    accounts.forEach(account => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td style="border: 1px solid #ccc; padding: 8px;">${account['Date']}</td>
+            <td style="border: 1px solid #ccc; padding: 8px;">${account['Item Name']}</td>
+            <td style="border: 1px solid #ccc; padding: 8px;">${account['Income Amount']}</td>
+            <td style="border: 1px solid #ccc; padding: 8px;">${account['Expense Amount']}</td>
+            <td style="border: 1px solid #ccc; padding: 8px;">${account['Fund Name']}</td>
+            <td style="border: 1px solid #ccc; padding: 8px;">${account['Fund Allocation']}</td>
+            <td style="border: 1px solid #ccc; padding: 8px;">${account['ActionLK Allocation']}</td>
+            <td style="border: 1px solid #ccc; padding: 8px;">${account['Staff Member']}</td>
+            <td style="border: 1px solid #ccc; padding: 8px;">${account['Sold On']}</td>
+        `;
+        accountsContent.appendChild(row);
+    });
+}
 
 function populateItemsList(items) {
   console.log('Populating items list:', items);  // Debugging to check items being passed to populate function
@@ -285,18 +512,19 @@ items.forEach(item => {
     const itemType = item['Item Type'] || item['item_type'];
     const allocatedFund = item['Allocated Fund'] || item['allocated_fund'];
     const status = item['Status'] || item['status'];
-  const price = item['Price'] || item['price'];
+    const price = item['Price'] || item['price'];
 
-    const row = document.createElement('tr');
- row.innerHTML = `
-    <td style="border: 1px solid #ccc; padding: 8px;">${itemName}</td>
-    <td style="border: 1px solid #ccc; padding: 8px;">${itemType}</td>
-    <td style="border: 1px solid #ccc; padding: 8px;">${allocatedFund}</td>
-    <td style="border: 1px solid #ccc; padding: 8px;">${price}</td>
-    <td style="border: 1px solid #ccc; padding: 8px;">${status}</td>
-`;
-
-    itemsContent.appendChild(row);
+    if (status === 'Available') { // Only show items that are Available
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td style="border: 1px solid #ccc; padding: 8px;">${itemName}</td>
+            <td style="border: 1px solid #ccc; padding: 8px;">${itemType}</td>
+            <td style="border: 1px solid #ccc; padding: 8px;">${allocatedFund}</td>
+            <td style="border: 1px solid #ccc; padding: 8px;">${price}</td>
+            <td style="border: 1px solid #ccc; padding: 8px;">${status}</td>
+        `;
+        itemsContent.appendChild(row);
+    }
 });
 
 }
@@ -339,7 +567,8 @@ async function checkInDonation() {
             "Price": price || "N/A",
             "Received By": receivedBy,
             "Donor": donor,
-            "Status": "Available"
+            "Status": "Available",
+            "Date Donated": new Date().toISOString().split('T')[0]
         };
 
         // Add the new item to the Google Sheet
@@ -383,15 +612,22 @@ function populateItemDropdown(items) {
     });
 
     // Add event listener to autofill price when an item is selected
-    soldItemSelect.addEventListener('change', () => {
-        const selectedItemName = soldItemSelect.value;
-        const selectedItem = items.find(item => item['Item Name'] === selectedItemName);
-        if (selectedItem) {
-            document.getElementById('saleAmount').value = selectedItem['Price'] || '';
-        } else {
-            document.getElementById('saleAmount').value = '';
-        }
-    });
+ soldItemSelect.addEventListener('change', () => {
+    const selectedItemName = soldItemSelect.value;
+    const selectedItem = items.find(item => item['Item Name'] === selectedItemName);
+    if (selectedItem) {
+        document.getElementById('saleAmount').value = selectedItem['Price'] || '';
+    } else {
+        document.getElementById('saleAmount').value = '';
+    }
+
+    // Preserve the "Sold On" field's existing value instead of overwriting it
+    if (!document.getElementById('soldOn').value) {
+        document.getElementById('soldOn').value = 'In-Store';
+    }
+});
+
+
 }
 
 
