@@ -4,48 +4,218 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Action Letterkenny</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
+            justify-content: flex-start; /* Change to start to reduce spacing at the top */
+            padding-top: 20px; /* Add padding to control space above the title */
+            min-height: 100vh;
             margin: 0;
-            background-color: #f0f0f0;
-            font-family: Arial, sans-serif;
+            background-color: #f7f9fc;
+            font-family: 'Roboto', sans-serif;
         }
-        #welcomeScreen, #fundsList, #donationForm, #salesForm {
-            margin-top: 20px;
-            width: 80%;
-            max-width: 600px;
-            border: 1px solid #ccc;
-            padding: 10px;
-            background: #fff;
-            border-radius: 8px;
+  #welcomeScreen, #fundsList, #donationForm, #salesForm, #createFundForm, #accountsList {
+    margin-top: 20px;
+    width: 90%;
+    max-width: 700px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 2px solid #add8e6; /* Light blue border */
+}
+
+#fundCircleContainer {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 1200px;
+    margin-bottom: 20px;
+    align-items: center;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+
+
+canvas {
+    background-color: #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border: 2px solid #add8e6;
+    width: 150px;
+    height: 150px;
+    max-width: 150px;
+    max-height: 150px;
+    margin: 0 auto;
+    display: block;
+}
+
+
+      
+
+
+
+// Update fetchFunds to call createFundCharts
+async function fetchFunds() {
+    try {
+        const response = await fetch('https://sheetdb.io/api/v1/6brag3n1d11fk?sheet=Funds');
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
         }
-        #welcomeScreen button {
+        const funds = await response.json();
+        console.log('Fetched Funds:', funds); // Debug to verify funds data
+        populateFundsList(funds);
+        populateFundOptions(funds);
+        
+        // Debug to check if at least two funds exist
+        if (funds.length < 2) {
+            console.warn('Less than two funds available to create fund charts.');
+        }
+        
+        createFundCharts(funds); // Generate charts after fetching data
+    } catch (error) {
+        console.error('Error fetching funds:', error);
+        document.getElementById('fundsList').innerText = 'Error fetching funds: ' + error;
+    }
+}
+
+
+       h1 {
+    font-size: 3rem; /* Make the title larger */
+    font-weight: bold; /* Give a stronger weight */
+    color: #007bff; /* Give it a distinct color */
+    text-transform: uppercase; /* Make it uppercase for impact */
+    text-align: center; /* Center the title */
+    margin-bottom: 10px; /* Reduce the bottom margin */
+    letter-spacing: 2px; /* Add spacing between letters for a modern look */
+    background: linear-gradient(to right, #007bff, #00bfff); /* Add a gradient effect */
+    -webkit-background-clip: text; /* Clip the background to text for gradient effect */
+    color: transparent; /* Make text transparent to apply the gradient */
+}
+
+h2 {
+    color: #333;
+}
+      
+
+
+        #welcomeScreen button, #donationForm button, #salesForm button, #createFundForm button, #accountsList button {
             display: block;
             width: 100%;
             margin: 10px 0;
-            padding: 10px;
+            padding: 15px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
         }
-        .fund-item {
-            padding: 10px;
-            border-bottom: 1px solid #eee;
+        #welcomeScreen button:hover, #donationForm button:hover, #salesForm button:hover, #createFundForm button:hover, #accountsList button:hover {
+            background-color: #0056b3;
         }
-        .fund-item:last-child {
-            border-bottom: none;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f1f1f1;
         }
         label {
             display: block;
-            margin-top: 10px;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="number"], select {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        #backToHomeButton {
+            margin-top: 20px;
+            background-color: #6c757d;
+        }
+        #backToHomeButton:hover {
+            background-color: #5a6268;
+        }
+        .quote {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            text-align: center;
+            font-style: italic;
+            color: #666;
         }
     </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
     
-    <h1>Action Letterkenny</h1>
+<h1><span style="font-family: 'Roboto', sans-serif;">Action Letterkenny</span></h1>
+
+<div id="mainContainer" style="display: flex; width: 100%; max-width: 1400px; margin-top: 20px; gap: 20px;">
+    <!-- Left column for fund circles -->
+   <div id="leftSidebar" style="flex: 1; overflow-y: auto; max-height: 600px; padding: 10px; align-items: center;">
+    <canvas id="fundCircle1" width="150" height="150" style="margin-bottom: 20px;"></canvas>
+    <canvas id="fundCircle3" width="150" height="150" style="margin-bottom: 20px;"></canvas>
+<canvas id="fundCircle5" width="150" height="150" style="margin-bottom: 20px;"></canvas>
+
+     <!-- More fund circles can be added as needed -->
+</div>
+
+    <!-- Main content in the center -->
+    <div id="mainContent" style="flex: 2;">
+        <div id="welcomeScreen" style="display: block; position: relative;">
+            <div style="margin: 20px 0;">
+                <button onclick="showForm('donationForm')">Check In Donation</button>
+                <button onclick="showForm('itemsList')">View Stock</button>
+                <button onclick="showForm('fundsList')">View Current Funds</button>
+                <button onclick="showForm('createFundForm')">Create New Fund</button>
+                <button onclick="showForm('salesForm')">Make a Sale</button>
+                <button onclick="showForm('accountsList')">Accounts</button>
+            </div>
+            
+        </div>
+      <div id="quote" style="margin-top: 40px; text-align: center; font-style: italic; color: #666;"></div>
+    </div>
+
+    <!-- Right column for fund circles -->
+<div id="rightSidebar" style="flex: 1; overflow-y: auto; max-height: 600px; padding: 10px; align-items: center;">
+    <canvas id="fundCircle2" width="150" height="150" style="margin-bottom: 20px;"></canvas>
+    <canvas id="fundCircle4" width="150" height="150" style="margin-bottom: 20px;"></canvas>
+<canvas id="fundCircle6" width="150" height="150" style="margin-bottom: 20px;"></canvas>
+
+</div>
+
     <div id="fundsList" style="display: none;">
         <h2>Current Funds</h2>
 <table id="fundsTable" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
@@ -99,17 +269,8 @@
 
   
     <button onclick="showForm('welcomeScreen')" style="margin-top: 20px; display: none;" id="backToHomeButton">Back to Home</button>
-        
-     <div id="welcomeScreen" style="display: block; position: relative;">
-    <div id="quote" style="position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); width: 90%; text-align: center; padding-bottom: 20px;"></div>
-    <div style="margin: 20px 0;">
-        <button onclick="showForm('donationForm')">Check In Donation</button>
-        <button onclick="showForm('itemsList')">View Stock</button>
-        <button onclick="showForm('fundsList')">View Current Funds</button>
-        <button onclick="showForm('salesForm')">Make a Sale</button>
-        <button onclick="showForm('accountsList')">Accounts</button>
-    </div>
-</div>
+  
+  
 
     <div id="donationForm" style="display: none;">
         <h2>Check In Donation</h2>
@@ -128,8 +289,27 @@
         <label for="donor">Donor:</label>
         <input type="text" id="donor">
         <button onclick="checkInDonation()">Check In</button>
-        <button onclick="showForm('welcomeScreen')">Back</button>
     </div>
+  
+<div id="createFundForm" style="display: none;">
+    <h2>Create New Fund</h2>
+    <label for="fundName">Fund Name:</label>
+    <input type="text" id="fundName">
+
+    <label for="fundGoal">Fund Goal:</label>
+    <input type="number" id="fundGoal">
+
+    <label for="fundDescription">Fund Description:</label>
+    <input type="text" id="fundDescription">
+
+    <label for="creator">Creator:</label>
+    <input type="text" id="creator">
+
+    <label for="fundContact">Fund Contact:</label>
+    <input type="text" id="fundContact">
+
+    <button onclick="createNewFund()">Create Fund</button>
+</div>
 
     <div id="salesForm" style="display: none;">
         <h2>Register Sale</h2>
@@ -152,7 +332,6 @@
 
 
         <button onclick="registerSale()">Register Sale</button>
-        <button onclick="showForm('welcomeScreen')">Back</button>
     </div>
 
     <script>
@@ -329,11 +508,13 @@ await fetchFunds(); // Refresh funds list after updating the funds
         document.getElementById('soldOn').value = 'In-Store'; // Set default value for Sold On
     } else if (formId === 'accountsList') {
         fetchAccounts(); // Fetch accounts data when the accounts form is shown
+    } else if (formId === 'createFundForm') {
+        // Show the create fund form
     }
 
     // Show or hide Back to Home button based on the form
     const backToHomeButton = document.getElementById('backToHomeButton');
-    if (formId === 'fundsList' || formId === 'itemsList' || formId === 'donationForm' || formId === 'salesForm' || formId === 'accountsList') {
+    if (formId === 'fundsList' || formId === 'itemsList' || formId === 'donationForm' || formId === 'salesForm' || formId === 'accountsList' || formId === 'createFundForm') {
         backToHomeButton.style.display = 'block';
     } else {
         backToHomeButton.style.display = 'none';
@@ -346,6 +527,7 @@ await fetchFunds(); // Refresh funds list after updating the funds
     document.getElementById('fundsList').style.display = 'none';
     document.getElementById('itemsList').style.display = 'none';
     document.getElementById('accountsList').style.display = 'none';
+    document.getElementById('createFundForm').style.display = 'none';
 
     // Show the selected form
     if (document.getElementById(formId)) {
@@ -355,23 +537,91 @@ await fetchFunds(); // Refresh funds list after updating the funds
 
 
 
+async function createNewFund() {
+    const fundName = document.getElementById('fundName').value;
+    const fundGoal = document.getElementById('fundGoal').value;
+    const fundDescription = document.getElementById('fundDescription').value;
+    const creator = document.getElementById('creator').value;
+    const fundContact = document.getElementById('fundContact').value;
 
+    if (!fundName || !fundGoal || !creator) {
+        alert('Please fill in all required fields (Fund Name, Fund Goal, Creator)');
+        return;
+    }
 
-
-        async function fetchFunds() {
     try {
+        // Fetch current funds to determine the highest existing ID
         const response = await fetch('https://sheetdb.io/api/v1/6brag3n1d11fk?sheet=Funds');
         if (!response.ok) {
-            throw new Error('Network response was not ok');
+            throw new Error('Failed to fetch existing funds');
         }
         const funds = await response.json();
-        console.log(funds);  // Debugging to check fetched funds data
-        populateFundsList(funds);
-        populateFundOptions(funds);
+
+        // Find the highest existing ID and increment it
+        let highestId = 0;
+        funds.forEach(fund => {
+            const currentId = parseInt(fund['ID'].replace('F', ''));
+            if (!isNaN(currentId) && currentId > highestId) {
+                highestId = currentId;
+            }
+        });
+        const newFundId = `F${highestId + 1}`;
+
+        // Determine the next color by picking a color that isn't already used
+        const availableColors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF"];
+        const usedColors = funds.map(fund => fund['Colour']);
+        const color = availableColors.find(col => !usedColors.includes(col)) || "#000000";
+
+        // Set today's date
+        const lastChanged = new Date().toLocaleDateString('en-IE');
+
+        const newFund = {
+            "ID": newFundId,
+            "Fund Name": fundName,
+            "Fund Goal": fundGoal,
+            "Fund Description": fundDescription,
+            "Creator": creator,
+            "Colour": color,
+            "Fund Contact": fundContact,
+            "Last Changed": lastChanged
+        };
+
+        // Add the new fund to the Google Sheet
+        const addResponse = await fetch('https://sheetdb.io/api/v1/6brag3n1d11fk?sheet=Funds', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ data: [newFund] })
+        });
+
+        if (!addResponse.ok) {
+            throw new Error('Failed to add the fund to the spreadsheet');
+        }
+
+        alert('Fund created successfully!');
+
+        // Clear the input fields
+        document.getElementById('fundName').value = '';
+        document.getElementById('fundGoal').value = '';
+        document.getElementById('fundDescription').value = '';
+        document.getElementById('creator').value = '';
+        document.getElementById('fundContact').value = '';
+
+        // Refresh the funds list to update the dropdown options
+        await fetchFunds();
+
+        // Return to welcome screen
+        showForm('welcomeScreen');
+
     } catch (error) {
-        document.getElementById('fundsList').innerText = 'Error fetching funds: ' + error;
+        alert('Error: ' + error.message);
     }
 }
+
+
+
+
 
 
     function generateQuote() {
@@ -402,6 +652,127 @@ await fetchFunds(); // Refresh funds list after updating the funds
         document.getElementById('quote').innerText = randomQuote;
     }
 
+async function fetchFunds() {
+    try {
+        const response = await fetch('https://sheetdb.io/api/v1/6brag3n1d11fk?sheet=Funds');
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        const funds = await response.json();
+        console.log('Fetched Funds:', funds); // Debug to verify funds data
+        populateFundsList(funds);
+        populateFundOptions(funds);
+        createFundCharts(funds); // Generate charts after fetching data
+    } catch (error) {
+        console.error('Error fetching funds:', error);
+        document.getElementById('fundsList').innerText = 'Error fetching funds: ' + error;
+    }
+} //fetchFunds
+      
+function overlayText(canvas, fundName, balance, goal) {
+    const ctx = canvas.getContext('2d');
+    const x = canvas.width / 2 - 20; // Adjust x-coordinate to match the text shift to the left
+    const y = canvas.height / 2 - 10; // Adjust y-coordinate to move the text up
+
+    // Draw a semi-transparent rectangle as background
+    const padding = 10; // Padding around the text
+    const textWidth = Math.max(
+        ctx.measureText(fundName).width,
+        ctx.measureText(`Balance: €${balance}`).width,
+        ctx.measureText(`Goal: €${goal}`).width
+    ) + padding * 2;
+    const textHeight = 60; // Approximate height for 3 lines of text
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'; // Semi-transparent white
+    ctx.fillRect(x - textWidth / 2, y - textHeight / 2, textWidth, textHeight);
+
+    // Draw the text over the rectangle
+    ctx.fillStyle = "#333";
+    ctx.font = "bold 14px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    // Draw the three lines of text centered on the doughnut chart
+    ctx.fillText(fundName, x, y - 20);
+    ctx.fillText(`Balance: €${balance}`, x, y);
+    ctx.fillText(`Goal: €${goal}`, x, y + 20);
+}
+
+
+
+ //overlayText
+      
+function createFundCharts(funds) {
+    console.log('Creating fund charts with funds:', funds);
+const contexts = [
+    document.getElementById('fundCircle1').getContext('2d'),
+    document.getElementById('fundCircle2').getContext('2d'),
+    document.getElementById('fundCircle3').getContext('2d'),
+    document.getElementById('fundCircle4').getContext('2d'),
+    document.getElementById('fundCircle5').getContext('2d'),
+    document.getElementById('fundCircle6').getContext('2d')
+];
+
+
+
+   const displayedFunds = funds.slice(0, 6); // Limit to the first six funds (if available)
+
+    displayedFunds.forEach((fund, index) => {
+    if (contexts[index]) {
+        const amountRaised = parseFloat(fund['Amount Raised']) || 0;
+        const fundGoal = parseFloat(fund['Fund Goal']) || 100; // Default to 100 if no goal specified
+
+        // Cap the percentage at 100% to avoid overflows
+        const percentage = Math.min((amountRaised / fundGoal) * 100, 100);
+
+        const chartData = {
+            datasets: [
+                {
+                    data: [percentage, 100 - percentage],
+                    backgroundColor: [fund['Colour'] || '#007bff', '#e0e0e0'],
+                    borderWidth: 1,
+                }
+            ],
+            labels: ['Raised', 'Remaining'],
+        };
+
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false,
+                },
+                tooltip: {
+                    enabled: false,
+                },
+            },
+            rotation: -Math.PI / 2,
+            animation: {
+                duration: 0, // Disable animation to make the chart appear instantly
+                onComplete: () => {
+                    // Add text overlay to the chart after it's fully drawn
+                    overlayText(contexts[index].canvas, fund['Fund Name'], amountRaised, fundGoal);
+                }
+            },
+        };
+
+        // Create the doughnut chart
+        new Chart(contexts[index], {
+            type: 'doughnut',
+            data: chartData,
+            options: chartOptions,
+        });
+    } else {
+        console.error(`Context for fundCircle${index + 1} is not available.`);
+    }
+});
+
+}
+
+
+ //createFundCharts
+      
     // Generate a quote on page load
 window.addEventListener('DOMContentLoaded', () => {
     generateQuote();
@@ -629,6 +1000,9 @@ function populateItemDropdown(items) {
 
 
 }
+
+
+
 
 
 
